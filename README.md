@@ -1,9 +1,14 @@
  crossfit-games-scraper
 ======================
 
+There are three .csv files included above that can be downloaded. They contain last years data (2013) for Team, Individual Men, Individual Women. Enjoy!
+
 A quick ruby scraper that gets data from http://games.crossfit.com/leaderboard
 
+```
 run ./games-scraper.rb -h for help
+```
+
 
 ```
 Usage: games-scraper.rb -s -d -r -c -y
