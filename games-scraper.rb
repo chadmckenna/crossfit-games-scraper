@@ -38,9 +38,19 @@ end
 optparse.parse!
 
 athletes = []
+events = []
 current_page = 1
 finished = false
 
+# headers
+url = "http://games.crossfit.com/scores/leaderboard.php?stage=#{options[:stage]}&sort=0&division=#{options[:division]}&region=#{options[:region]}&numberperpage=100&page=#{current_page}&competition=#{options[:competition]}&year=#{options[:year]}"
+page = Nokogiri::HTML(open(url))
+
+page.css('.workout-header').each do |event|
+  events.push event.content.strip.match(/(^.{0,}$)/)[0]
+end
+
+# athletes
 while !finished do
   url = "http://games.crossfit.com/scores/leaderboard.php?stage=#{options[:stage]}&sort=0&division=#{options[:division]}&region=#{options[:region]}&numberperpage=100&page=#{current_page}&competition=#{options[:competition]}&year=#{options[:year]}"
 
@@ -52,7 +62,7 @@ while !finished do
       if match = number.content.match(/(\d{0,}.)(\(\d{0,}\))/)
         o_p, o_s = match.captures
         athlete[:overall_place] = o_p.strip.to_i
-        athlete[:overall_score] = o_s[1..-2].to_i
+        athlete[:overall_score] = o_s[1..-2].to_f
       end
     end
 
@@ -64,30 +74,29 @@ while !finished do
     athlete[:place] = []
     athlete[:score] = []
     tr.css('.display').each do |score|
-      if match = score.content.match(/(\d{0,}.)(\(\d{0,}\))/)
+      if match = score.content.match(/(\d{0,}T?.)(\(.{0,8}\))/)
         p, s = match.captures
         athlete[:place].push p.strip.to_i
-        athlete[:score].push s[1..-2].to_i
+        athlete[:score].push s[1..-2].to_f
       end
     end
     athletes.push athlete if athlete[:uid] && athlete[:name]
   end
   
-  if athletes.count % 100 == 0
-    current_page += 1
-  else
-    finished = true
-  end
-
   puts "Athletes scanned: #{athletes.count}"
+  
+  finished = true if athletes.count % 100 != 0
+  current_page += 1
 end
 
 puts "Writing to athletes_#{options[:stage]}_#{options[:division]}_#{options[:region]}_#{options[:competition]}_#{options[:year]}.csv ..."
 
 open("athletes_#{options[:stage]}_#{options[:division]}_#{options[:region]}_#{options[:competition]}_#{options[:year]}.csv", 'w') do |file|
-  file.write "Overall Place,Overall Score,UID,Name,#{(1..athletes[0][:place].count).map{|i| "Place - Event #{i}"}.join(',')},#{(1..athletes[0][:score].count).map{|i| "Score - Event #{i}"}.join(',')}\n"
+  file.write "Overall Place,Overall Score,UID,Name,#{events.map{|i| "\"Place - #{i}\""}.join(',')},#{events.map{|i| "\"Score - #{i}\""}.join(',')}\n"
   athletes.each_with_index do |athlete, i|
-    file.write "#{athlete[:overall_place]},#{athlete[:overall_score]},#{athlete[:uid]},\"#{athlete[:name]}\",#{athlete[:place].join(', ')},#{athlete[:score].join(', ')}\n"
+    if athlete[:place].count == events.count
+      file.write "#{athlete[:overall_place]},#{athlete[:overall_score]},#{athlete[:uid]},\"#{athlete[:name]}\",#{athlete[:place].join(', ')},#{athlete[:score].join(', ')}\n"
+    end
   end
 end
 
